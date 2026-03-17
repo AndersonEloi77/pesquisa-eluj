@@ -62,7 +62,7 @@ st.write("Qual dessas você compraria?")
 # CONFIGURAÇÕES
 # =========================
 CSV_PATH = "votos.csv"
-ADMIN_PASSWORD = sinhoeloi13
+ADMIN_PASSWORD = "sinhoeloi13"
 
 imagens = [f"imagens/img{i}.JPG" for i in range(1, 21)]
 
