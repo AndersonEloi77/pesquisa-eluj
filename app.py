@@ -10,6 +10,9 @@ import pandas as pd
 
 st.set_page_config(page_title="Pesquisa Eluj", layout="wide")
 
+# =========================
+# ESTILO
+# =========================
 st.markdown("""
 <style>
 .block-container {
@@ -25,12 +28,11 @@ st.markdown("""
     font-size: 1rem;
 }
 
-/* MOBILE */
 @media (max-width: 768px) {
     .block-container {
         padding-top: 0.6rem;
-        padding-left: 0.45rem;
-        padding-right: 0.45rem;
+        padding-left: 0.55rem;
+        padding-right: 0.55rem;
     }
 
     h1 {
@@ -42,23 +44,9 @@ st.markdown("""
         font-size: 0.95rem !important;
     }
 
-    /* força as colunas a ficarem lado a lado */
-    div[data-testid="stHorizontalBlock"] {
-        display: flex !important;
-        flex-wrap: nowrap !important;
-        gap: 0.45rem !important;
-        align-items: flex-start !important;
-    }
-
-    div[data-testid="column"] {
-        flex: 1 1 0 !important;
-        min-width: 0 !important;
-        width: 50% !important;
-    }
-
     .stButton > button {
-        font-size: 0.92rem !important;
-        padding: 0.5rem 0.35rem !important;
+        font-size: 0.95rem !important;
+        padding: 0.55rem 0.45rem !important;
     }
 
     img {
@@ -75,7 +63,7 @@ st.write("Qual dessas você compraria?")
 # CONFIGURAÇÕES
 # =========================
 CSV_PATH = "votos.csv"
-ADMIN_PASSWORD = "troque_essa_senha"
+ADMIN_PASSWORD = "sinhoeloi13"
 
 imagens = [f"imagens/img{i}.JPG" for i in range(1, 21)]
 
@@ -85,7 +73,7 @@ RODADAS_OBRIGATORIAS = 1
 MAX_TENTATIVAS_PARES = 200
 
 # =========================
-# FUNÇÕES CSV
+# CSV
 # =========================
 def garantir_csv():
     if not os.path.exists(CSV_PATH):
@@ -101,335 +89,144 @@ def garantir_csv():
                 "escolhida"
             ])
 
-def registrar_voto(participante_id, rodada_numero, escolha_na_rodada, esquerda, direita, escolhida):
+def registrar_voto(pid, rodada, escolha, esq, dir, esc):
     with open(CSV_PATH, mode="a", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerow([
             datetime.now().isoformat(),
-            participante_id,
-            rodada_numero,
-            escolha_na_rodada,
-            esquerda,
-            direita,
-            escolhida
+            pid, rodada, escolha, esq, dir, esc
         ])
 
 def carregar_votos():
     if not os.path.exists(CSV_PATH):
-        return pd.DataFrame(columns=[
-            "timestamp",
-            "participante_id",
-            "rodada_numero",
-            "escolha_na_rodada",
-            "imagem_esquerda",
-            "imagem_direita",
-            "escolhida"
-        ])
+        return pd.DataFrame()
     try:
         return pd.read_csv(CSV_PATH)
-    except Exception:
-        return pd.DataFrame(columns=[
-            "timestamp",
-            "participante_id",
-            "rodada_numero",
-            "escolha_na_rodada",
-            "imagem_esquerda",
-            "imagem_direita",
-            "escolhida"
-        ])
+    except:
+        return pd.DataFrame()
 
 # =========================
-# FUNÇÕES RANKING
+# RANKING
 # =========================
-def atualizar_elo_dict(ratings, vencedor, perdedor, k=32):
-    rating_v = ratings[vencedor]
-    rating_p = ratings[perdedor]
+def atualizar_elo(r, v, p):
+    ev = 1 / (1 + 10 ** ((r[p] - r[v]) / 400))
+    ep = 1 / (1 + 10 ** ((r[v] - r[p]) / 400))
+    r[v] += 32 * (1 - ev)
+    r[p] += 32 * (0 - ep)
 
-    esperado_v = 1 / (1 + 10 ** ((rating_p - rating_v) / 400))
-    esperado_p = 1 / (1 + 10 ** ((rating_v - rating_p) / 400))
-
-    ratings[vencedor] += k * (1 - esperado_v)
-    ratings[perdedor] += k * (0 - esperado_p)
-
-def reconstruir_ranking_global():
-    ratings = {img: 1000.0 for img in imagens}
-    aparicoes = {img: 0 for img in imagens}
-    vitorias = {img: 0 for img in imagens}
-
+def ranking():
+    r = {img: 1000 for img in imagens}
     df = carregar_votos()
-    if df.empty:
-        return ratings, aparicoes, vitorias, df
 
     for _, row in df.iterrows():
-        esquerda = row["imagem_esquerda"]
-        direita = row["imagem_direita"]
-        escolhida = row["escolhida"]
+        e, d, esc = row["imagem_esquerda"], row["imagem_direita"], row["escolhida"]
+        v, p = (e, d) if esc == e else (d, e)
+        atualizar_elo(r, v, p)
 
-        if esquerda in aparicoes:
-            aparicoes[esquerda] += 1
-        if direita in aparicoes:
-            aparicoes[direita] += 1
-        if escolhida in vitorias:
-            vitorias[escolhida] += 1
-
-        if escolhida == esquerda:
-            vencedor, perdedor = esquerda, direita
-        else:
-            vencedor, perdedor = direita, esquerda
-
-        if vencedor in ratings and perdedor in ratings:
-            atualizar_elo_dict(ratings, vencedor, perdedor)
-
-    return ratings, aparicoes, vitorias, df
-
-# =========================
-# FUNÇÕES RODADA
-# =========================
-def gerar_pares_rodada():
-    historico_pares = st.session_state.historico_pares_sessao
-    melhor_pares = None
-    melhor_repeticao = None
-
-    for _ in range(MAX_TENTATIVAS_PARES):
-        embaralhadas = imagens[:]
-        random.shuffle(embaralhadas)
-        pares = [(embaralhadas[i], embaralhadas[i + 1]) for i in range(0, len(embaralhadas), 2)]
-
-        repeticoes = 0
-        for a, b in pares:
-            par_key = frozenset([a, b])
-            repeticoes += historico_pares.get(par_key, 0)
-
-        if melhor_repeticao is None or repeticoes < melhor_repeticao:
-            melhor_repeticao = repeticoes
-            melhor_pares = pares
-
-        if repeticoes == 0:
-            break
-
-    return melhor_pares
-
-def iniciar_nova_rodada():
-    st.session_state.rodada_numero += 1
-    st.session_state.pares_rodada = gerar_pares_rodada()
-    st.session_state.indice_par_atual = 0
-
-def obter_par_atual():
-    return st.session_state.pares_rodada[st.session_state.indice_par_atual]
-
-def concluir_voto(escolhida, esquerda, direita):
-    escolha_na_rodada = st.session_state.indice_par_atual + 1
-
-    registrar_voto(
-        participante_id=st.session_state.participante_id,
-        rodada_numero=st.session_state.rodada_numero,
-        escolha_na_rodada=escolha_na_rodada,
-        esquerda=esquerda,
-        direita=direita,
-        escolhida=escolhida
-    )
-
-    par_key = frozenset([esquerda, direita])
-    st.session_state.historico_pares_sessao[par_key] += 1
-    st.session_state.indice_par_atual += 1
-
-# =========================
-# FUNÇÕES EXIBIÇÃO
-# =========================
-def nome_curto(caminho):
-    return os.path.splitext(os.path.basename(caminho))[0]
-
-def mostrar_top10_com_imagem():
-    ratings, _, _, _ = reconstruir_ranking_global()
-    ranking = sorted(ratings.items(), key=lambda x: x[1], reverse=True)[:10]
-
-    st.subheader("🏁 Top 10")
-
-    for pos, (img, pts) in enumerate(ranking, start=1):
-        c1, c2, c3 = st.columns([0.7, 1.1, 1.8])
-
-        with c1:
-            st.markdown(f"**{pos}º**")
-
-        with c2:
-            st.image(img, width=70)
-
-        with c3:
-            st.markdown(f"**{nome_curto(img)}**")
-            st.caption(f"{round(pts)} pts")
-
-def mostrar_resumo_admin():
-    ratings, aparicoes, vitorias, df = reconstruir_ranking_global()
-
-    st.subheader("📊 Resumo por blusa")
-
-    if df.empty:
-        st.info("Ainda não há votos salvos no CSV.")
-        return
-
-    st.write(f"Total de votos registrados: **{len(df)}**")
-    st.write(f"Participantes únicos: **{df['participante_id'].nunique()}**")
-
-    resumo = []
-    for img in imagens:
-        ap = aparicoes.get(img, 0)
-        vt = vitorias.get(img, 0)
-        taxa = (vt / ap * 100) if ap > 0 else 0
-        resumo.append({
-            "imagem": nome_curto(img),
-            "aparições": ap,
-            "vitórias": vt,
-            "taxa_vitória_%": round(taxa, 1),
-            "elo": round(ratings[img])
-        })
-
-    resumo_df = pd.DataFrame(resumo).sort_values(by="elo", ascending=False)
-    st.dataframe(resumo_df, use_container_width=True, hide_index=True)
+    return sorted(r.items(), key=lambda x: x[1], reverse=True)
 
 # =========================
 # ADMIN
 # =========================
 def painel_admin():
     with st.sidebar:
-        st.markdown("### Área administrativa")
-        senha = st.text_input("Senha", type="password")
-
+        senha = st.text_input("Senha admin", type="password")
         if senha == ADMIN_PASSWORD:
-            st.success("Modo administrador ativado")
-            st.session_state.admin_ok = True
-        elif senha:
-            st.error("Senha incorreta")
-            st.session_state.admin_ok = False
+            st.session_state.admin = True
 
-if "admin_ok" not in st.session_state:
-    st.session_state.admin_ok = False
+if "admin" not in st.session_state:
+    st.session_state.admin = False
 
 painel_admin()
 
 # =========================
-# INICIALIZAÇÃO
+# ESTADO
 # =========================
 garantir_csv()
 
-if "participante_id" not in st.session_state:
-    st.session_state.participante_id = str(uuid.uuid4())[:8]
+if "id" not in st.session_state:
+    st.session_state.id = str(uuid.uuid4())[:8]
 
-if "rodada_numero" not in st.session_state:
-    st.session_state.rodada_numero = 0
+if "rodada" not in st.session_state:
+    st.session_state.rodada = 1
 
-if "pares_rodada" not in st.session_state:
-    st.session_state.pares_rodada = []
+if "indice" not in st.session_state:
+    st.session_state.indice = 0
 
-if "indice_par_atual" not in st.session_state:
-    st.session_state.indice_par_atual = 0
+if "pares" not in st.session_state:
+    temp = imagens[:]
+    random.shuffle(temp)
+    st.session_state.pares = [(temp[i], temp[i+1]) for i in range(0, len(temp), 2)]
 
-if "historico_pares_sessao" not in st.session_state:
-    st.session_state.historico_pares_sessao = defaultdict(int)
-
-if "finalizado" not in st.session_state:
-    st.session_state.finalizado = False
-
-if st.session_state.rodada_numero == 0:
-    iniciar_nova_rodada()
+if "fim" not in st.session_state:
+    st.session_state.fim = False
 
 # =========================
-# FINALIZADO
+# FINAL
 # =========================
-if st.session_state.finalizado:
-    st.success("Pesquisa finalizada. Muito obrigado por nos ajudar ❤️")
+if st.session_state.fim:
+    st.success("Obrigado por nos ajudar ❤️")
 
-    st.markdown(
-        """
-        Deus te abençoe imensamente, varão/varoa ❤️  
-        Sua ajuda foi muito importante para nós.  
-        Cada resposta faz diferença na escolha das próximas peças.
-        """
-    )
-
-    with st.expander("Ver ranking final"):
-        mostrar_top10_com_imagem()
-
-    if st.session_state.admin_ok:
-        with st.expander("Ver resumo por blusa"):
-            mostrar_resumo_admin()
+    with st.expander("Ver ranking"):
+        for i, (img, pts) in enumerate(ranking()[:10], 1):
+            st.write(f"{i}º - {os.path.basename(img)}")
 
     st.stop()
 
 # =========================
-# LAYOUT PRINCIPAL
+# PROGRESSO
 # =========================
-st.markdown(
-    f"**Rodada atual:** {st.session_state.rodada_numero}  \n"
-    f"**Escolha:** {min(st.session_state.indice_par_atual + 1, ESCOLHAS_POR_RODADA)} de {ESCOLHAS_POR_RODADA}"
-)
+st.progress(st.session_state.indice / ESCOLHAS_POR_RODADA)
 
-progresso = st.session_state.indice_par_atual / ESCOLHAS_POR_RODADA
-st.progress(progresso)
+# =========================
+# FIM DA RODADA
+# =========================
+if st.session_state.indice >= ESCOLHAS_POR_RODADA:
 
-if st.session_state.indice_par_atual >= ESCOLHAS_POR_RODADA:
-    st.success(f"Rodada {st.session_state.rodada_numero} concluída ✅")
+    if st.button("Finalizar"):
+        st.session_state.fim = True
+        st.rerun()
 
-    if st.session_state.rodada_numero >= RODADAS_OBRIGATORIAS:
-        st.info(
-            "Deus te abençoe imensamente, varão/varoa ❤️ "
-            "Agora você pode finalizar ou seguir para mais uma rodada de 10 escolhas. "
-            "Quanto mais respostas, melhor para a gente. "
-            "Mas não queremos que fique entediado, então não se sinta obrigado a continuar. "
-            "Pode finalizar tranquilo, porque você já nos ajudou muito ❤️"
-        )
+    if st.button("Continuar"):
+        st.session_state.rodada += 1
+        st.session_state.indice = 0
+        temp = imagens[:]
+        random.shuffle(temp)
+        st.session_state.pares = [(temp[i], temp[i+1]) for i in range(0, len(temp), 2)]
+        st.rerun()
 
-        c1, c2 = st.columns(2)
-
-        with c1:
-            if st.button("Finalizar pesquisa"):
-                st.session_state.finalizado = True
-                st.rerun()
-
-        with c2:
-            if st.button("Continuar para mais 1 rodada (10 escolhas)"):
-                iniciar_nova_rodada()
-                st.rerun()
-    else:
-        if st.button("Iniciar próxima rodada"):
-            iniciar_nova_rodada()
-            st.rerun()
-
-    with st.expander("Ver ranking atual"):
-        mostrar_top10_com_imagem()
-
-    if st.session_state.admin_ok:
-        with st.expander("Ver resumo por blusa"):
-            mostrar_resumo_admin()
+    with st.expander("Ver ranking"):
+        for i, (img, pts) in enumerate(ranking()[:10], 1):
+            st.write(f"{i}º - {os.path.basename(img)}")
 
     st.stop()
 
-img1, img2 = obter_par_atual()
+# =========================
+# VOTAÇÃO (VERTICAL)
+# =========================
+img1, img2 = st.session_state.pares[st.session_state.indice]
 
-col_esq, col_dir = st.columns([1, 1], gap="small")
+# PRIMEIRA IMAGEM
+st.image(img1, width=320)
+if st.button("Escolho essa", key="b1", use_container_width=True):
+    registrar_voto(st.session_state.id, st.session_state.rodada,
+                   st.session_state.indice, img1, img2, img1)
+    st.session_state.indice += 1
+    st.rerun()
 
-with col_esq:
-    st.image(img1, width=180)
-    if st.button(
-        "Escolho essa",
-        key=f"btn_left_{st.session_state.rodada_numero}_{st.session_state.indice_par_atual}",
-        use_container_width=True
-    ):
-        concluir_voto(img1, img1, img2)
-        st.rerun()
+st.write("")
 
-with col_dir:
-    st.image(img2, width=180)
-    if st.button(
-        "Escolho essa",
-        key=f"btn_right_{st.session_state.rodada_numero}_{st.session_state.indice_par_atual}",
-        use_container_width=True
-    ):
-        concluir_voto(img2, img1, img2)
-        st.rerun()
+# SEGUNDA IMAGEM
+st.image(img2, width=320)
+if st.button("Escolho essa", key="b2", use_container_width=True):
+    registrar_voto(st.session_state.id, st.session_state.rodada,
+                   st.session_state.indice, img1, img2, img2)
+    st.session_state.indice += 1
+    st.rerun()
 
+# =========================
+# RANKING
+# =========================
 with st.expander("Ver ranking atual"):
-    mostrar_top10_com_imagem()
-
-if st.session_state.admin_ok:
-    with st.expander("Ver resumo por blusa"):
-        mostrar_resumo_admin()
+    for i, (img, pts) in enumerate(ranking()[:10], 1):
+        st.write(f"{i}º - {os.path.basename(img)}")
