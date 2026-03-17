@@ -4,15 +4,10 @@ import csv
 import os
 import uuid
 from datetime import datetime
-from collections import defaultdict
-
 import pandas as pd
 
 st.set_page_config(page_title="Pesquisa Eluj", layout="wide")
 
-# =========================
-# ESTILO
-# =========================
 st.markdown("""
 <style>
 .block-container {
@@ -59,9 +54,6 @@ st.markdown("""
 st.title("Pesquisa Eluj 👕")
 st.write("Qual dessas você compraria?")
 
-# =========================
-# CONFIGURAÇÕES
-# =========================
 CSV_PATH = "votos.csv"
 ADMIN_PASSWORD = "sinhoeloi13"
 
@@ -69,12 +61,7 @@ imagens = [f"imagens/img{i}.JPG" for i in range(1, 21)]
 
 QTD_BLUSAS = len(imagens)
 ESCOLHAS_POR_RODADA = QTD_BLUSAS // 2
-RODADAS_OBRIGATORIAS = 1
-MAX_TENTATIVAS_PARES = 200
 
-# =========================
-# CSV
-# =========================
 def garantir_csv():
     if not os.path.exists(CSV_PATH):
         with open(CSV_PATH, mode="w", newline="", encoding="utf-8") as f:
@@ -89,45 +76,139 @@ def garantir_csv():
                 "escolhida"
             ])
 
-def registrar_voto(pid, rodada, escolha, esq, dir, esc):
+def registrar_voto(pid, rodada, escolha, esq, dir_, esc):
     with open(CSV_PATH, mode="a", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerow([
             datetime.now().isoformat(),
-            pid, rodada, escolha, esq, dir, esc
+            pid,
+            rodada,
+            escolha,
+            esq,
+            dir_,
+            esc
         ])
 
 def carregar_votos():
     if not os.path.exists(CSV_PATH):
-        return pd.DataFrame()
+        return pd.DataFrame(columns=[
+            "timestamp",
+            "participante_id",
+            "rodada_numero",
+            "escolha_na_rodada",
+            "imagem_esquerda",
+            "imagem_direita",
+            "escolhida"
+        ])
     try:
         return pd.read_csv(CSV_PATH)
-    except:
-        return pd.DataFrame()
+    except Exception:
+        return pd.DataFrame(columns=[
+            "timestamp",
+            "participante_id",
+            "rodada_numero",
+            "escolha_na_rodada",
+            "imagem_esquerda",
+            "imagem_direita",
+            "escolhida"
+        ])
 
-# =========================
-# RANKING
-# =========================
-def atualizar_elo(r, v, p):
-    ev = 1 / (1 + 10 ** ((r[p] - r[v]) / 400))
-    ep = 1 / (1 + 10 ** ((r[v] - r[p]) / 400))
-    r[v] += 32 * (1 - ev)
-    r[p] += 32 * (0 - ep)
+def atualizar_elo(ratings, vencedor, perdedor):
+    esperado_v = 1 / (1 + 10 ** ((ratings[perdedor] - ratings[vencedor]) / 400))
+    esperado_p = 1 / (1 + 10 ** ((ratings[vencedor] - ratings[perdedor]) / 400))
+    ratings[vencedor] += 32 * (1 - esperado_v)
+    ratings[perdedor] += 32 * (0 - esperado_p)
 
 def ranking():
-    r = {img: 1000 for img in imagens}
+    ratings = {img: 1000.0 for img in imagens}
     df = carregar_votos()
 
+    if df.empty:
+        return sorted(ratings.items(), key=lambda x: x[1], reverse=True)
+
     for _, row in df.iterrows():
-        e, d, esc = row["imagem_esquerda"], row["imagem_direita"], row["escolhida"]
-        v, p = (e, d) if esc == e else (d, e)
-        atualizar_elo(r, v, p)
+        esquerda = row["imagem_esquerda"]
+        direita = row["imagem_direita"]
+        escolhida = row["escolhida"]
 
-    return sorted(r.items(), key=lambda x: x[1], reverse=True)
+        if escolhida == esquerda:
+            vencedor, perdedor = esquerda, direita
+        else:
+            vencedor, perdedor = direita, esquerda
 
-# =========================
-# ADMIN
-# =========================
+        if vencedor in ratings and perdedor in ratings:
+            atualizar_elo(ratings, vencedor, perdedor)
+
+    return sorted(ratings.items(), key=lambda x: x[1], reverse=True)
+
+def mostrar_ranking_com_imagem():
+    st.subheader("🏁 Top 10")
+    for i, (img, pts) in enumerate(ranking()[:10], 1):
+        c1, c2, c3 = st.columns([0.7, 1.1, 2])
+
+        with c1:
+            st.markdown(f"**{i}º**")
+
+        with c2:
+            st.image(img, width=70)
+
+        with c3:
+            st.markdown(f"**{os.path.splitext(os.path.basename(img))[0]}**")
+            st.caption(f"{round(pts)} pts")
+
+def mostrar_resumo_admin():
+    df = carregar_votos()
+    st.subheader("📊 Resumo por blusa")
+
+    if df.empty:
+        st.info("Ainda não há votos salvos.")
+        return
+
+    ratings = {img: 1000.0 for img in imagens}
+    aparicoes = {img: 0 for img in imagens}
+    vitorias = {img: 0 for img in imagens}
+
+    for _, row in df.iterrows():
+        esquerda = row["imagem_esquerda"]
+        direita = row["imagem_direita"]
+        escolhida = row["escolhida"]
+
+        if esquerda in aparicoes:
+            aparicoes[esquerda] += 1
+        if direita in aparicoes:
+            aparicoes[direita] += 1
+        if escolhida in vitorias:
+            vitorias[escolhida] += 1
+
+        if escolhida == esquerda:
+            vencedor, perdedor = esquerda, direita
+        else:
+            vencedor, perdedor = direita, esquerda
+
+        if vencedor in ratings and perdedor in ratings:
+            atualizar_elo(ratings, vencedor, perdedor)
+
+    resumo = []
+    for img in imagens:
+        ap = aparicoes.get(img, 0)
+        vt = vitorias.get(img, 0)
+        taxa = (vt / ap * 100) if ap > 0 else 0
+        resumo.append({
+            "imagem": os.path.splitext(os.path.basename(img))[0],
+            "aparições": ap,
+            "vitórias": vt,
+            "taxa_vitória_%": round(taxa, 1),
+            "elo": round(ratings[img])
+        })
+
+    resumo_df = pd.DataFrame(resumo).sort_values(by="elo", ascending=False)
+    st.dataframe(resumo_df, use_container_width=True, hide_index=True)
+
+def gerar_pares():
+    temp = imagens[:]
+    random.shuffle(temp)
+    return [(temp[i], temp[i+1]) for i in range(0, len(temp), 2)]
+
 def painel_admin():
     with st.sidebar:
         senha = st.text_input("Senha admin", type="password")
@@ -138,10 +219,6 @@ if "admin" not in st.session_state:
     st.session_state.admin = False
 
 painel_admin()
-
-# =========================
-# ESTADO
-# =========================
 garantir_csv()
 
 if "id" not in st.session_state:
@@ -154,79 +231,94 @@ if "indice" not in st.session_state:
     st.session_state.indice = 0
 
 if "pares" not in st.session_state:
-    temp = imagens[:]
-    random.shuffle(temp)
-    st.session_state.pares = [(temp[i], temp[i+1]) for i in range(0, len(temp), 2)]
+    st.session_state.pares = gerar_pares()
 
 if "fim" not in st.session_state:
     st.session_state.fim = False
 
-# =========================
-# FINAL
-# =========================
 if st.session_state.fim:
-    st.success("Obrigado por nos ajudar ❤️")
+    st.success("Muito obrigado por nos ajudar ❤️")
+    st.markdown(
+        """
+        Deus te abençoe imensamente ❤️  
+        Sua ajuda foi muito importante para nós.  
+        """
+    )
 
-    with st.expander("Ver ranking"):
-        for i, (img, pts) in enumerate(ranking()[:10], 1):
-            st.write(f"{i}º - {os.path.basename(img)}")
+    with st.expander("Ver ranking final"):
+        mostrar_ranking_com_imagem()
+
+    if st.session_state.admin:
+        with st.expander("Ver resumo por blusa"):
+            mostrar_resumo_admin()
 
     st.stop()
 
-# =========================
-# PROGRESSO
-# =========================
 st.progress(st.session_state.indice / ESCOLHAS_POR_RODADA)
 
-# =========================
-# FIM DA RODADA
-# =========================
 if st.session_state.indice >= ESCOLHAS_POR_RODADA:
+    st.success(f"Rodada {st.session_state.rodada} concluída ✅")
+    st.info(
+        "Se quiser continuar, melhor ainda para a gente ❤️ "
+        "Mas, se já estiver cansado(a), pode finalizar tranquilo(a), porque você já nos ajudou muito."
+    )
 
-    if st.button("Finalizar"):
-        st.session_state.fim = True
-        st.rerun()
+    col1, col2 = st.columns(2)
 
-    if st.button("Continuar"):
-        st.session_state.rodada += 1
-        st.session_state.indice = 0
-        temp = imagens[:]
-        random.shuffle(temp)
-        st.session_state.pares = [(temp[i], temp[i+1]) for i in range(0, len(temp), 2)]
-        st.rerun()
+    with col1:
+        if st.button("Finalizar pesquisa"):
+            st.session_state.fim = True
+            st.rerun()
 
-    with st.expander("Ver ranking"):
-        for i, (img, pts) in enumerate(ranking()[:10], 1):
-            st.write(f"{i}º - {os.path.basename(img)}")
+    with col2:
+        if st.button("Continuar para mais 1 rodada"):
+            st.session_state.rodada += 1
+            st.session_state.indice = 0
+            st.session_state.pares = gerar_pares()
+            st.rerun()
+
+    with st.expander("Ver ranking atual"):
+        mostrar_ranking_com_imagem()
+
+    if st.session_state.admin:
+        with st.expander("Ver resumo por blusa"):
+            mostrar_resumo_admin()
 
     st.stop()
 
-# =========================
-# VOTAÇÃO (VERTICAL)
-# =========================
 img1, img2 = st.session_state.pares[st.session_state.indice]
 
-# PRIMEIRA IMAGEM
 st.image(img1, width=320)
-if st.button("Escolho essa", key="b1", use_container_width=True):
-    registrar_voto(st.session_state.id, st.session_state.rodada,
-                   st.session_state.indice, img1, img2, img1)
+if st.button("Escolho essa", key=f"b1_{st.session_state.rodada}_{st.session_state.indice}", use_container_width=True):
+    registrar_voto(
+        st.session_state.id,
+        st.session_state.rodada,
+        st.session_state.indice + 1,
+        img1,
+        img2,
+        img1
+    )
     st.session_state.indice += 1
     st.rerun()
 
 st.write("")
 
-# SEGUNDA IMAGEM
 st.image(img2, width=320)
-if st.button("Escolho essa", key="b2", use_container_width=True):
-    registrar_voto(st.session_state.id, st.session_state.rodada,
-                   st.session_state.indice, img1, img2, img2)
+if st.button("Escolho essa", key=f"b2_{st.session_state.rodada}_{st.session_state.indice}", use_container_width=True):
+    registrar_voto(
+        st.session_state.id,
+        st.session_state.rodada,
+        st.session_state.indice + 1,
+        img1,
+        img2,
+        img2
+    )
     st.session_state.indice += 1
     st.rerun()
 
-# =========================
-# RANKING
-# =========================
 with st.expander("Ver ranking atual"):
-    for i, (img, pts) in enumerate(ranking()[:10], 1):
-        st.write(f"{i}º - {os.path.basename(img)}")
+    mostrar_ranking_com_imagem()
+
+if st.session_state.admin:
+    with st.expander("Ver resumo por blusa"):
+        mostrar_resumo_admin()
