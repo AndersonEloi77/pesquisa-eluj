@@ -13,39 +13,52 @@ st.set_page_config(page_title="Pesquisa Eluj", layout="wide")
 st.markdown("""
 <style>
 .block-container {
-    padding-top: 1rem;
+    padding-top: 0.8rem;
     padding-bottom: 1rem;
+    max-width: 1100px;
 }
 
 .stButton > button {
     width: 100%;
     border-radius: 12px;
-    padding: 0.6rem 0.8rem;
+    padding: 0.55rem 0.75rem;
     font-size: 1rem;
 }
 
+/* MOBILE */
 @media (max-width: 768px) {
     .block-container {
-        padding-top: 0.7rem;
-        padding-left: 0.6rem;
-        padding-right: 0.6rem;
+        padding-top: 0.6rem;
+        padding-left: 0.45rem;
+        padding-right: 0.45rem;
     }
 
     h1 {
-        font-size: 2.2rem !important;
-        margin-bottom: 0.4rem !important;
+        font-size: 2rem !important;
+        margin-bottom: 0.3rem !important;
     }
 
     p, div, label {
         font-size: 0.95rem !important;
     }
 
+    /* força as colunas a ficarem lado a lado */
     div[data-testid="stHorizontalBlock"] {
-        gap: 0.4rem !important;
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        gap: 0.45rem !important;
+        align-items: flex-start !important;
     }
 
     div[data-testid="column"] {
+        flex: 1 1 0 !important;
         min-width: 0 !important;
+        width: 50% !important;
+    }
+
+    .stButton > button {
+        font-size: 0.92rem !important;
+        padding: 0.5rem 0.35rem !important;
     }
 
     img {
@@ -62,7 +75,7 @@ st.write("Qual dessas você compraria?")
 # CONFIGURAÇÕES
 # =========================
 CSV_PATH = "votos.csv"
-ADMIN_PASSWORD = "sinhoeloi13"
+ADMIN_PASSWORD = "troque_essa_senha"
 
 imagens = [f"imagens/img{i}.JPG" for i in range(1, 21)]
 
@@ -392,22 +405,24 @@ if st.session_state.indice_par_atual >= ESCOLHAS_POR_RODADA:
 
 img1, img2 = obter_par_atual()
 
-col_esq, col_dir = st.columns(2, gap="small")
+col_esq, col_dir = st.columns([1, 1], gap="small")
 
 with col_esq:
-    st.image(img1, use_container_width=True)
+    st.image(img1, width=180)
     if st.button(
         "Escolho essa",
-        key=f"btn_left_{st.session_state.rodada_numero}_{st.session_state.indice_par_atual}"
+        key=f"btn_left_{st.session_state.rodada_numero}_{st.session_state.indice_par_atual}",
+        use_container_width=True
     ):
         concluir_voto(img1, img1, img2)
         st.rerun()
 
 with col_dir:
-    st.image(img2, use_container_width=True)
+    st.image(img2, width=180)
     if st.button(
         "Escolho essa",
-        key=f"btn_right_{st.session_state.rodada_numero}_{st.session_state.indice_par_atual}"
+        key=f"btn_right_{st.session_state.rodada_numero}_{st.session_state.indice_par_atual}",
+        use_container_width=True
     ):
         concluir_voto(img2, img1, img2)
         st.rerun()
