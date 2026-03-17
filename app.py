@@ -12,13 +12,11 @@ st.set_page_config(page_title="Pesquisa Eluj", layout="wide")
 
 st.markdown("""
 <style>
-/* reduz margens gerais */
 .block-container {
     padding-top: 1rem;
     padding-bottom: 1rem;
 }
 
-/* deixa botões mais largos */
 .stButton > button {
     width: 100%;
     border-radius: 12px;
@@ -26,7 +24,6 @@ st.markdown("""
     font-size: 1rem;
 }
 
-/* celular */
 @media (max-width: 768px) {
     .block-container {
         padding-top: 0.7rem;
@@ -43,12 +40,10 @@ st.markdown("""
         font-size: 0.95rem !important;
     }
 
-    /* diminui espaço entre colunas */
     div[data-testid="stHorizontalBlock"] {
         gap: 0.4rem !important;
     }
 
-    /* força colunas a caberem melhor */
     div[data-testid="column"] {
         min-width: 0 !important;
     }
@@ -67,12 +62,12 @@ st.write("Qual dessas você compraria?")
 # CONFIGURAÇÕES
 # =========================
 CSV_PATH = "votos.csv"
-ADMIN_PASSWORD = "sinhoeloi13"  # troque pela senha que você quiser
+ADMIN_PASSWORD = sinhoeloi13
 
 imagens = [f"imagens/img{i}.JPG" for i in range(1, 21)]
 
 QTD_BLUSAS = len(imagens)
-ESCOLHAS_POR_RODADA = QTD_BLUSAS // 2  # 20 / 2 = 10
+ESCOLHAS_POR_RODADA = QTD_BLUSAS // 2
 RODADAS_OBRIGATORIAS = 1
 MAX_TENTATIVAS_PARES = 200
 
@@ -238,7 +233,7 @@ def mostrar_top10_com_imagem():
     st.subheader("🏁 Top 10")
 
     for pos, (img, pts) in enumerate(ranking, start=1):
-        c1, c2, c3 = st.columns([0.7, 1.2, 1.6])
+        c1, c2, c3 = st.columns([0.7, 1.1, 1.8])
 
         with c1:
             st.markdown(f"**{pos}º**")
@@ -276,7 +271,7 @@ def mostrar_resumo_admin():
         })
 
     resumo_df = pd.DataFrame(resumo).sort_values(by="elo", ascending=False)
-    st.dataframe(resumo_df, width="stretch", hide_index=True)
+    st.dataframe(resumo_df, use_container_width=True, hide_index=True)
 
 # =========================
 # ADMIN
@@ -330,101 +325,96 @@ if st.session_state.rodada_numero == 0:
 if st.session_state.finalizado:
     st.success("Pesquisa finalizada. Muito obrigado por nos ajudar ❤️")
 
-    col_main, col_rank = st.columns([3, 1])
+    st.markdown(
+        """
+        Deus te abençoe imensamente, varão/varoa ❤️  
+        Sua ajuda foi muito importante para nós.  
+        Cada resposta faz diferença na escolha das próximas peças.
+        """
+    )
 
-    with col_main:
-        st.markdown(
-            """
-            Deus te abençoe imensamente, varão/varoa ❤️  
-            Sua ajuda foi muito importante para nós.  
-            Cada resposta faz diferença na escolha das próximas peças.
-            """
-        )
-
-        if st.session_state.admin_ok:
-            with st.expander("Ver resumo por blusa"):
-                mostrar_resumo_admin()
-
-    with col_rank:
+    with st.expander("Ver ranking final"):
         mostrar_top10_com_imagem()
+
+    if st.session_state.admin_ok:
+        with st.expander("Ver resumo por blusa"):
+            mostrar_resumo_admin()
 
     st.stop()
 
 # =========================
 # LAYOUT PRINCIPAL
 # =========================
-col_main, col_rank = st.columns([3, 1], gap="medium")
+st.markdown(
+    f"**Rodada atual:** {st.session_state.rodada_numero}  \n"
+    f"**Escolha:** {min(st.session_state.indice_par_atual + 1, ESCOLHAS_POR_RODADA)} de {ESCOLHAS_POR_RODADA}"
+)
 
-with col_rank:
-    mostrar_top10_com_imagem()
+progresso = st.session_state.indice_par_atual / ESCOLHAS_POR_RODADA
+st.progress(progresso)
 
-with col_main:
-    st.markdown(
-        f"**Rodada atual:** {st.session_state.rodada_numero}  \n"
-        f"**Escolha:** {min(st.session_state.indice_par_atual + 1, ESCOLHAS_POR_RODADA)} de {ESCOLHAS_POR_RODADA}"
-    )
+if st.session_state.indice_par_atual >= ESCOLHAS_POR_RODADA:
+    st.success(f"Rodada {st.session_state.rodada_numero} concluída ✅")
 
-    progresso = st.session_state.indice_par_atual / ESCOLHAS_POR_RODADA
-    st.progress(progresso)
+    if st.session_state.rodada_numero >= RODADAS_OBRIGATORIAS:
+        st.info(
+            "Deus te abençoe imensamente, varão/varoa ❤️ "
+            "Agora você pode finalizar ou seguir para mais uma rodada de 10 escolhas. "
+            "Quanto mais respostas, melhor para a gente. "
+            "Mas não queremos que fique entediado, então não se sinta obrigado a continuar. "
+            "Pode finalizar tranquilo, porque você já nos ajudou muito ❤️"
+        )
 
-    if st.session_state.indice_par_atual >= ESCOLHAS_POR_RODADA:
-        st.success(f"Rodada {st.session_state.rodada_numero} concluída ✅")
+        c1, c2 = st.columns(2)
 
-        if st.session_state.rodada_numero >= RODADAS_OBRIGATORIAS:
-            st.info(
-                "Deus te abençoe imensamente, varão/varoa ❤️ "
-                "Agora você pode finalizar ou seguir para mais uma rodada de 10 escolhas. "
-                "Quanto mais respostas, melhor para a gente. "
-                "Mas não queremos que fique entediado, então não se sinta obrigado a continuar. "
-                "Pode finalizar tranquilo, porque você já nos ajudou muito ❤️"
-            )
-
-            c1, c2 = st.columns(2)
-
-            with c1:
-                if st.button("Finalizar pesquisa"):
-                    st.session_state.finalizado = True
-                    st.rerun()
-
-            with c2:
-                if st.button("Continuar para mais 1 rodada (10 escolhas)"):
-                    iniciar_nova_rodada()
-                    st.rerun()
-        else:
-            if st.button("Iniciar próxima rodada"):
-                iniciar_nova_rodada()
+        with c1:
+            if st.button("Finalizar pesquisa"):
+                st.session_state.finalizado = True
                 st.rerun()
 
-        if st.session_state.admin_ok:
-            with st.expander("Ver resumo por blusa"):
-                mostrar_resumo_admin()
-
-        st.stop()
-
-    img1, img2 = obter_par_atual()
-
-    col_esq, col_dir = st.columns(2, gap="small")
-
-    with col_esq:
-        st.image(img1, width="stretch")
-        st.caption(nome_curto(img1))
-        if st.button(
-            "Escolho essa",
-            key=f"btn_left_{st.session_state.rodada_numero}_{st.session_state.indice_par_atual}"
-        ):
-            concluir_voto(img1, img1, img2)
+        with c2:
+            if st.button("Continuar para mais 1 rodada (10 escolhas)"):
+                iniciar_nova_rodada()
+                st.rerun()
+    else:
+        if st.button("Iniciar próxima rodada"):
+            iniciar_nova_rodada()
             st.rerun()
 
-    with col_dir:
-        st.image(img2, width="stretch")
-        st.caption(nome_curto(img2))
-        if st.button(
-            "Escolho essa",
-            key=f"btn_right_{st.session_state.rodada_numero}_{st.session_state.indice_par_atual}"
-        ):
-            concluir_voto(img2, img1, img2)
-            st.rerun()
+    with st.expander("Ver ranking atual"):
+        mostrar_top10_com_imagem()
 
     if st.session_state.admin_ok:
         with st.expander("Ver resumo por blusa"):
             mostrar_resumo_admin()
+
+    st.stop()
+
+img1, img2 = obter_par_atual()
+
+col_esq, col_dir = st.columns(2, gap="small")
+
+with col_esq:
+    st.image(img1, use_container_width=True)
+    if st.button(
+        "Escolho essa",
+        key=f"btn_left_{st.session_state.rodada_numero}_{st.session_state.indice_par_atual}"
+    ):
+        concluir_voto(img1, img1, img2)
+        st.rerun()
+
+with col_dir:
+    st.image(img2, use_container_width=True)
+    if st.button(
+        "Escolho essa",
+        key=f"btn_right_{st.session_state.rodada_numero}_{st.session_state.indice_par_atual}"
+    ):
+        concluir_voto(img2, img1, img2)
+        st.rerun()
+
+with st.expander("Ver ranking atual"):
+    mostrar_top10_com_imagem()
+
+if st.session_state.admin_ok:
+    with st.expander("Ver resumo por blusa"):
+        mostrar_resumo_admin()
