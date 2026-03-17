@@ -21,8 +21,6 @@ ADMIN_PASSWORD = "sinhoeloi13"  # troque pela senha que você quiser
 
 imagens = [f"imagens/img{i}.JPG" for i in range(1, 21)]
 
-if arquivos
-
 QTD_BLUSAS = len(imagens)
 ESCOLHAS_POR_RODADA = QTD_BLUSAS // 2  # 20 / 2 = 10
 RODADAS_OBRIGATORIAS = 1
