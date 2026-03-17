@@ -10,6 +10,56 @@ import pandas as pd
 
 st.set_page_config(page_title="Pesquisa Eluj", layout="wide")
 
+st.markdown("""
+<style>
+/* reduz margens gerais */
+.block-container {
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+}
+
+/* deixa botões mais largos */
+.stButton > button {
+    width: 100%;
+    border-radius: 12px;
+    padding: 0.6rem 0.8rem;
+    font-size: 1rem;
+}
+
+/* celular */
+@media (max-width: 768px) {
+    .block-container {
+        padding-top: 0.7rem;
+        padding-left: 0.6rem;
+        padding-right: 0.6rem;
+    }
+
+    h1 {
+        font-size: 2.2rem !important;
+        margin-bottom: 0.4rem !important;
+    }
+
+    p, div, label {
+        font-size: 0.95rem !important;
+    }
+
+    /* diminui espaço entre colunas */
+    div[data-testid="stHorizontalBlock"] {
+        gap: 0.4rem !important;
+    }
+
+    /* força colunas a caberem melhor */
+    div[data-testid="column"] {
+        min-width: 0 !important;
+    }
+
+    img {
+        border-radius: 10px;
+    }
+}
+</style>
+""", unsafe_allow_html=True)
+
 st.title("Pesquisa Eluj 👕")
 st.write("Qual dessas você compraria?")
 
