@@ -19,7 +19,7 @@ st.write("Qual dessas você compraria?")
 CSV_PATH = "votos.csv"
 ADMIN_PASSWORD = "sinhoeloi13"  # troque pela senha que você quiser
 
-imagens = [rf"C:\Users\Julia\Desktop\img{i}.jpg" for i in range(1, 21)]
+imagens = [f"imagens/img{i}.jpg" for i in range(1, 21)]
 
 QTD_BLUSAS = len(imagens)
 ESCOLHAS_POR_RODADA = QTD_BLUSAS // 2  # 20 / 2 = 10
