@@ -21,6 +21,21 @@ ADMIN_PASSWORD = "sinhoeloi13"  # troque pela senha que você quiser
 
 imagens = [f"imagens/img{i}.jpg" for i in range(1, 21)]
 
+arquivos_faltando = [img for img in imagens if not os.path.exists(img)]
+
+if arquivos_faltando:
+    st.error("Os arquivos abaixo não foram encontrados no servidor:")
+    for arq in arquivos_faltando:
+        st.write(arq)
+
+    st.write("Arquivos encontrados dentro da pasta imagens:")
+    if os.path.exists("imagens"):
+        st.write(sorted(os.listdir("imagens")))
+    else:
+        st.write("A pasta 'imagens' não foi encontrada.")
+
+    st.stop()
+
 QTD_BLUSAS = len(imagens)
 ESCOLHAS_POR_RODADA = QTD_BLUSAS // 2  # 20 / 2 = 10
 RODADAS_OBRIGATORIAS = 1
